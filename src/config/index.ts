@@ -9,6 +9,12 @@ export interface AppConfig {
     maxFileSize: number
     allowedExtensions: string[]
   }
+  gallery: {
+    galleryPath: string
+    imageFormat: 'png' | 'jpg'
+    imageQuality: number
+    maxPages: number
+  }
   shipping: {
     defaultAddress: {
       name: string
@@ -34,6 +40,12 @@ export const getConfig = (): AppConfig => {
       maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '50') * 1024 * 1024, // 50MB default
       allowedExtensions: ['.pdf']
     },
+    gallery: {
+      galleryPath: process.env.GALLERY_PATH || './gallery',
+      imageFormat: (process.env.GALLERY_IMAGE_FORMAT as 'png' | 'jpg') || 'png',
+      imageQuality: parseInt(process.env.GALLERY_IMAGE_QUALITY || '85'),
+      maxPages: parseInt(process.env.GALLERY_MAX_PAGES || '10') // Convert up to 10 pages per PDF
+    },
     shipping: {
       defaultAddress: {
         name: process.env.DEFAULT_SHIPPING_NAME || 'Book Customer',
@@ -52,16 +64,33 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
   const config = getConfig()
   const errors: string[] = []
 
-  if (!config.prodigi.apiKey) {
-    errors.push('PRODIGI_API_KEY is required')
+  // Gallery configuration is always required now
+  if (!config.gallery.galleryPath) {
+    errors.push('GALLERY_PATH is required')
   }
 
-  if (!config.prodigi.apiUrl) {
-    errors.push('PRODIGI_API_URL is required')
+  if (!['png', 'jpg'].includes(config.gallery.imageFormat)) {
+    errors.push('GALLERY_IMAGE_FORMAT must be either "png" or "jpg"')
   }
 
-  if (!['sandbox', 'live'].includes(config.prodigi.environment)) {
-    errors.push('PRODIGI_ENVIRONMENT must be either "sandbox" or "live"')
+  if (config.gallery.imageQuality < 1 || config.gallery.imageQuality > 100) {
+    errors.push('GALLERY_IMAGE_QUALITY must be between 1 and 100')
+  }
+
+  if (config.gallery.maxPages < 1) {
+    errors.push('GALLERY_MAX_PAGES must be at least 1')
+  }
+
+  // Prodigi configuration is now optional since we're not creating orders
+  // Only validate if API key is provided (indicating intent to use Prodigi)
+  if (config.prodigi.apiKey) {
+    if (!config.prodigi.apiUrl) {
+      errors.push('PRODIGI_API_URL is required when PRODIGI_API_KEY is provided')
+    }
+
+    if (!['sandbox', 'live'].includes(config.prodigi.environment)) {
+      errors.push('PRODIGI_ENVIRONMENT must be either "sandbox" or "live"')
+    }
   }
 
   return {
