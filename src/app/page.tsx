@@ -10,14 +10,13 @@ interface BookFile {
   md5Hash: string
 }
 
-interface OrderResult {
+interface GalleryUploadResult {
   bookName: string
   fileName: string
   fileSize: string
   success: boolean
-  orderId?: string
-  status?: string
-  created?: string
+  imagesCreated?: number
+  galleryPath?: string
   error?: string
 }
 
@@ -26,13 +25,14 @@ interface ProcessingSummary {
   successCount: number
   failureCount: number
   successRate: string
+  totalImagesCreated?: number
 }
 
 export default function Home() {
   const [books, setBooks] = useState<BookFile[]>([])
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
-  const [results, setResults] = useState<OrderResult[]>([])
+  const [results, setResults] = useState<GalleryUploadResult[]>([])
   const [summary, setSummary] = useState<ProcessingSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,14 +58,14 @@ export default function Home() {
     }
   }
 
-  const processAllBooks = async () => {
+  const uploadAllToGallery = async () => {
     setLoading(true)
     setResults([])
     setSummary(null)
     setError(null)
     
     try {
-      const response = await fetch('/api/orders/create-all', {
+      const response = await fetch('/api/gallery/upload-all', {
         method: 'POST',
       })
       
@@ -74,16 +74,19 @@ export default function Home() {
       if (response.ok) {
         setResults(data.results)
         setSummary(data.summary)
-        console.log(`Processing completed: ${data.summary.successRate} success rate`)
+        console.log(`Gallery upload completed: ${data.summary.successRate} success rate`)
+        if (data.summary.totalImagesCreated) {
+          console.log(`Total images created: ${data.summary.totalImagesCreated}`)
+        }
       } else {
-        setError(data.error || 'Failed to process books')
+        setError(data.error || 'Failed to upload books to gallery')
         if (data.details) {
           console.error('Configuration errors:', data.details)
         }
       }
     } catch (error) {
-      console.error('Error processing books:', error)
-      setError('Network error while processing books')
+      console.error('Error uploading books to gallery:', error)
+      setError('Network error while uploading books to gallery')
     } finally {
       setLoading(false)
     }
@@ -96,7 +99,7 @@ export default function Home() {
   return (
     <div className="container">
       <h1 style={{ marginBottom: '2rem', fontSize: '2rem', textAlign: 'center' }}>
-        📚 Book Orderer - Prodigi Integration
+        📚 Book Gallery Uploader - PDF to Image Converter
       </h1>
       
       {error && (
@@ -125,15 +128,15 @@ export default function Home() {
           
           <button 
             className="button" 
-            onClick={processAllBooks} 
+            onClick={uploadAllToGallery} 
             disabled={loading || books.length === 0}
           >
             {loading ? (
               <>
-                <span className="loading"></span> Processing...
+                <span className="loading"></span> Uploading...
               </>
             ) : (
-              '🚀 Create All Orders'
+              '🖼️ Upload All to Gallery'
             )}
           </button>
         </div>
@@ -194,7 +197,7 @@ export default function Home() {
 
       {summary && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>📊 Processing Summary</h2>
+          <h2 style={{ marginBottom: '1rem' }}>📊 Upload Summary</h2>
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
@@ -225,13 +228,21 @@ export default function Home() {
               </div>
               <div style={{ fontSize: '0.9rem', color: '#004085' }}>Success Rate</div>
             </div>
+            {summary.totalImagesCreated !== undefined && (
+              <div style={{ textAlign: 'center', padding: '1rem', background: '#e7f3ff', borderRadius: '6px' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0066cc' }}>
+                  {summary.totalImagesCreated}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#0066cc' }}>Images Created</div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {results.length > 0 && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>📋 Order Results</h2>
+          <h2 style={{ marginBottom: '1rem' }}>📋 Gallery Upload Results</h2>
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
             {results.map((result, index) => (
               <div 
@@ -255,16 +266,11 @@ export default function Home() {
                     {result.success ? (
                       <div style={{ fontSize: '0.9rem' }}>
                         <div style={{ color: '#28a745' }}>
-                          <strong>Order ID:</strong> {result.orderId}
+                          <strong>Images Created:</strong> {result.imagesCreated}
                         </div>
                         <div style={{ color: '#6c757d' }}>
-                          <strong>Status:</strong> {result.status}
+                          <strong>Gallery Path:</strong> {result.galleryPath}
                         </div>
-                        {result.created && (
-                          <div style={{ color: '#6c757d' }}>
-                            <strong>Created:</strong> {new Date(result.created).toLocaleString()}
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <div style={{ color: '#dc3545', fontSize: '0.9rem' }}>

@@ -1,22 +1,24 @@
-# BookOrderer - Prodigi API Integration
+# Book Gallery Uploader - PDF to Image Converter
 
-A TypeScript Next.js application that automatically creates Prodigi print orders from PDF files in a designated folder. Perfect for batch processing book orders with the Prodigi print-on-demand service.
+A TypeScript Next.js application that automatically converts PDF files to images and organizes them in a gallery structure. Perfect for batch processing PDF books into image galleries for easy viewing and management.
 
 ## 🚀 Features
 
 - **Automatic PDF Detection**: Scans a designated folder for PDF files
-- **Prodigi Integration**: Creates print orders using the Prodigi API
+- **PDF to Image Conversion**: Converts PDF pages to images (PNG/JPG)
+- **Gallery Organization**: Creates organized gallery structure with subdirectories per book
 - **Batch Processing**: Process multiple books at once
 - **File Validation**: Validates PDF files before processing
 - **Real-time Status**: Live updates on processing progress
 - **Error Handling**: Comprehensive error reporting and logging
+- **Configurable Output**: Customizable image format, quality, and page limits
 - **Vercel Ready**: Optimized for deployment on Vercel
 
 ## 📋 Prerequisites
 
 - Node.js 18+ 
-- A Prodigi API account and API key
 - PDF files to process
+- (Optional) ImageMagick for advanced PDF conversion
 
 ## 🛠️ Installation
 
