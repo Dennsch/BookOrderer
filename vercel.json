@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 300
+    }
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "env": {
+    "PRODIGI_API_URL": "https://api.prodigi.com/v4.0",
+    "PRODIGI_ENVIRONMENT": "sandbox",
+    "BOOKS_FOLDER_PATH": "./books"
+  }
+}
