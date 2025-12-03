@@ -20,6 +20,13 @@ export interface AppConfig {
       stateOrCounty?: string
     }
   }
+  googleDrive: {
+    enabled: boolean
+    credentialsPath: string
+    folderId: string
+    monitoringInterval: number // in minutes
+    tempDownloadPath: string
+  }
 }
 
 export const getConfig = (): AppConfig => {
@@ -44,6 +51,13 @@ export const getConfig = (): AppConfig => {
         townOrCity: process.env.DEFAULT_SHIPPING_CITY || 'Anytown',
         stateOrCounty: process.env.DEFAULT_SHIPPING_STATE || 'NY'
       }
+    },
+    googleDrive: {
+      enabled: process.env.GOOGLE_DRIVE_ENABLED === 'true',
+      credentialsPath: process.env.GOOGLE_DRIVE_CREDENTIALS_PATH || './google-credentials.json',
+      folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
+      monitoringInterval: parseInt(process.env.GOOGLE_DRIVE_MONITORING_INTERVAL || '5'), // 5 minutes default
+      tempDownloadPath: process.env.GOOGLE_DRIVE_TEMP_PATH || './temp/downloads'
     }
   }
 }
@@ -62,6 +76,21 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
 
   if (!['sandbox', 'live'].includes(config.prodigi.environment)) {
     errors.push('PRODIGI_ENVIRONMENT must be either "sandbox" or "live"')
+  }
+
+  // Google Drive validation (only if enabled)
+  if (config.googleDrive.enabled) {
+    if (!config.googleDrive.folderId) {
+      errors.push('GOOGLE_DRIVE_FOLDER_ID is required when Google Drive is enabled')
+    }
+
+    if (!config.googleDrive.credentialsPath) {
+      errors.push('GOOGLE_DRIVE_CREDENTIALS_PATH is required when Google Drive is enabled')
+    }
+
+    if (config.googleDrive.monitoringInterval < 1) {
+      errors.push('GOOGLE_DRIVE_MONITORING_INTERVAL must be at least 1 minute')
+    }
   }
 
   return {

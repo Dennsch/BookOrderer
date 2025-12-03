@@ -10,6 +10,15 @@ interface BookFile {
   md5Hash: string
 }
 
+interface GoogleDriveFile {
+  id: string
+  name: string
+  size: number
+  sizeFormatted: string
+  modifiedTime: string
+  md5Checksum?: string
+}
+
 interface OrderResult {
   bookName: string
   fileName: string
@@ -28,14 +37,48 @@ interface ProcessingSummary {
   successRate: string
 }
 
+interface MonitoringStatus {
+  isRunning: boolean
+  lastCheck?: string
+  nextCheck?: string
+  totalFilesProcessed: number
+  successfulOrders: number
+  failedOrders: number
+  errors: string[]
+}
+
+interface GoogleDriveStatus {
+  googleDriveEnabled: boolean
+  monitoringInterval: number
+  status: MonitoringStatus
+  folderInfo?: { name: string; id: string }
+}
+
 export default function Home() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'local' | 'googledrive'>('local')
+  
+  // Local folder state
   const [books, setBooks] = useState<BookFile[]>([])
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
+  
+  // Google Drive state
+  const [googleDriveFiles, setGoogleDriveFiles] = useState<{
+    all: GoogleDriveFile[]
+    new: GoogleDriveFile[]
+    processed: GoogleDriveFile[]
+  }>({ all: [], new: [], processed: [] })
+  const [googleDriveStatus, setGoogleDriveStatus] = useState<GoogleDriveStatus | null>(null)
+  const [googleDriveScanning, setGoogleDriveScanning] = useState(false)
+  const [googleDriveProcessing, setGoogleDriveProcessing] = useState(false)
+  
+  // Shared state
   const [results, setResults] = useState<OrderResult[]>([])
   const [summary, setSummary] = useState<ProcessingSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Local folder functions
   const scanBooks = async () => {
     setScanning(true)
     setError(null)
@@ -89,9 +132,129 @@ export default function Home() {
     }
   }
 
+  // Google Drive functions
+  const scanGoogleDrive = async () => {
+    setGoogleDriveScanning(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/googledrive/scan')
+      const data = await response.json()
+      
+      if (response.ok) {
+        setGoogleDriveFiles(data.files)
+        console.log(`Found ${data.counts.total} files in Google Drive folder: ${data.folder.name}`)
+      } else {
+        setError(data.error || 'Failed to scan Google Drive')
+      }
+    } catch (error) {
+      console.error('Error scanning Google Drive:', error)
+      setError('Network error while scanning Google Drive')
+    } finally {
+      setGoogleDriveScanning(false)
+    }
+  }
+
+  const processGoogleDriveFiles = async () => {
+    setGoogleDriveProcessing(true)
+    setResults([])
+    setSummary(null)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/googledrive/process-new', {
+        method: 'POST',
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setResults(data.results)
+        setSummary(data.summary)
+        console.log(`Google Drive processing completed: ${data.summary.successRate} success rate`)
+        // Refresh Google Drive files after processing
+        await scanGoogleDrive()
+      } else {
+        setError(data.error || 'Failed to process Google Drive files')
+      }
+    } catch (error) {
+      console.error('Error processing Google Drive files:', error)
+      setError('Network error while processing Google Drive files')
+    } finally {
+      setGoogleDriveProcessing(false)
+    }
+  }
+
+  const getGoogleDriveStatus = async () => {
+    try {
+      const response = await fetch('/api/googledrive/status')
+      const data = await response.json()
+      
+      if (response.ok) {
+        setGoogleDriveStatus(data)
+      }
+    } catch (error) {
+      console.error('Error getting Google Drive status:', error)
+    }
+  }
+
+  const startMonitoring = async () => {
+    try {
+      const response = await fetch('/api/googledrive/monitor/start', {
+        method: 'POST',
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        console.log('Monitoring started successfully')
+        await getGoogleDriveStatus()
+      } else {
+        setError(data.error || 'Failed to start monitoring')
+      }
+    } catch (error) {
+      console.error('Error starting monitoring:', error)
+      setError('Network error while starting monitoring')
+    }
+  }
+
+  const stopMonitoring = async () => {
+    try {
+      const response = await fetch('/api/googledrive/monitor/stop', {
+        method: 'POST',
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        console.log('Monitoring stopped successfully')
+        await getGoogleDriveStatus()
+      } else {
+        setError(data.error || 'Failed to stop monitoring')
+      }
+    } catch (error) {
+      console.error('Error stopping monitoring:', error)
+      setError('Network error while stopping monitoring')
+    }
+  }
+
   useEffect(() => {
-    scanBooks()
-  }, [])
+    // Initialize based on active tab
+    if (activeTab === 'local') {
+      scanBooks()
+    } else if (activeTab === 'googledrive') {
+      getGoogleDriveStatus()
+      scanGoogleDrive()
+    }
+  }, [activeTab])
+
+  // Periodic status updates for Google Drive
+  useEffect(() => {
+    if (activeTab === 'googledrive') {
+      const interval = setInterval(getGoogleDriveStatus, 30000) // Update every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [activeTab])
 
   return (
     <div className="container">
@@ -104,9 +267,51 @@ export default function Home() {
           <strong>Error:</strong> {error}
         </div>
       )}
+
+      {/* Tab Navigation */}
+      <div style={{ 
+        display: 'flex', 
+        marginBottom: '2rem', 
+        borderBottom: '2px solid #e9ecef',
+        justifyContent: 'center'
+      }}>
+        <button
+          onClick={() => setActiveTab('local')}
+          style={{
+            padding: '1rem 2rem',
+            border: 'none',
+            background: activeTab === 'local' ? '#007bff' : 'transparent',
+            color: activeTab === 'local' ? 'white' : '#007bff',
+            borderBottom: activeTab === 'local' ? '3px solid #007bff' : '3px solid transparent',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            marginRight: '1rem'
+          }}
+        >
+          📁 Local Folder
+        </button>
+        <button
+          onClick={() => setActiveTab('googledrive')}
+          style={{
+            padding: '1rem 2rem',
+            border: 'none',
+            background: activeTab === 'googledrive' ? '#007bff' : 'transparent',
+            color: activeTab === 'googledrive' ? 'white' : '#007bff',
+            borderBottom: activeTab === 'googledrive' ? '3px solid #007bff' : '3px solid transparent',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 'bold'
+          }}
+        >
+          ☁️ Google Drive
+        </button>
+      </div>
       
-      <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>📁 Available Books</h2>
+      {/* Local Folder Tab Content */}
+      {activeTab === 'local' && (
+        <div className="card">
+          <h2 style={{ marginBottom: '1rem' }}>📁 Local Books Folder</h2>
         <div style={{ marginBottom: '1rem' }}>
           <button 
             className="button" 
