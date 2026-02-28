@@ -4,6 +4,10 @@ export interface AppConfig {
     apiUrl: string
     environment: 'sandbox' | 'live'
   }
+  gemini: {
+    apiKey: string
+    enabled: boolean
+  }
   app: {
     booksPath: string
     maxFileSize: number
@@ -30,6 +34,10 @@ export const getConfig = (): AppConfig => {
       environment: (process.env.PRODIGI_ENVIRONMENT as 'sandbox' | 'live') || 'sandbox'
     },
     app: {
+    gemini: {
+      apiKey: process.env.GOOGLE_GEMINI_API_KEY || '',
+      enabled: !!process.env.GOOGLE_GEMINI_API_KEY
+    },
       booksPath: process.env.BOOKS_FOLDER_PATH || './books',
       maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '50') * 1024 * 1024, // 50MB default
       allowedExtensions: ['.pdf']
@@ -62,6 +70,10 @@ export const validateConfig = (): { valid: boolean; errors: string[] } => {
 
   if (!['sandbox', 'live'].includes(config.prodigi.environment)) {
     errors.push('PRODIGI_ENVIRONMENT must be either "sandbox" or "live"')
+  }
+
+  if (!config.gemini.apiKey) {
+    errors.push('GOOGLE_GEMINI_API_KEY is required for Gemini storybook features')
   }
 
   return {
